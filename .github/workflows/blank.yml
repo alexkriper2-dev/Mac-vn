@@ -1,38 +1,34 @@
-name: AnyDesk macOS Connection
-on: workflow_dispatch
-
-jobs:
-  connect:
-    runs-on: macos-latest
-    steps:
       - name: Install AnyDesk
         run: brew install --cask anydesk
 
-      - name: Configure and Start AnyDesk
+      - name: Prepare AnyDesk (Fix Error 54)
         run: |
-          # 1. Запускаем фоновую службу
+          # 1. Создаем папку для настроек, если её нет
+          sudo mkdir -p /etc/anydesk
+          
+          # 2. Запускаем сервис и даем ему права
           sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --service &
-          sleep 10
+          sleep 15
           
-          # 2. Устанавливаем пароль (замени MyPassword123 на свой или используй Secret)
-          # Важно: используем sudo, так как конфиг AnyDesk защищен
-          echo "1234" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
-          
-          # 3. Даем права на запуск (иногда требуется на macOS раннерах)
-          sudo chmod +x /Applications/AnyDesk.app/Contents/MacOS/AnyDesk
-          
-      - name: Display Connection ID
+          # 3. Устанавливаем пароль (используем sudo)
+          # Замени MyPassword123 на свой
+          echo "MyPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
+
+      - name: Get ID
         run: |
-          # Получаем ID для подключения
-          echo "--------------------------------"
-          echo "ID ДЛЯ ПОДКЛЮЧЕНИЯ:"
-          /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id
-          echo "ПАРОЛЬ: 1234"
-          echo "--------------------------------"
+          # Пытаемся получить ID несколько раз
+          for i in {1..10}; do
+            AD_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
+            if [ ! -z "$AD_ID" ]; then
+              echo "--------------------------------"
+              echo "ID: $AD_ID"
+              echo "PASSWORD: MyPassword123"
+              echo "--------------------------------"
+              break
+            fi
+            sleep 2
+          done
 
       - name: Keep Alive
-        run: |
-          # Чтобы воркфлоу не закрылся сразу, держим его активным
-          # 21600 секунд = 6 часов
-          sleep 21600
-          
+        run: sleep 21600
+        
