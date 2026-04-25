@@ -1,34 +1,47 @@
+name: macOS noVNC Desktop
+on: workflow_dispatch
+
+jobs:
+  desktop:
+    runs-on: macos-latest
     steps:
-      - name: Install AnyDesk
-        run: brew install --cask anydesk
-
-      - name: Prepare AnyDesk (Fix Error 54)
+      - name: Install Dependencies
         run: |
-          # 1. Создаем папку для настроек, если её нет
-          sudo mkdir -p /etc/anydesk
-          
-          # 2. Запускаем сервис и даем ему права
-          sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --service &
-          sleep 15
-          
-          # 3. Устанавливаем пароль (используем sudo)
-          # Замени MyPassword123 на свой
-          echo "MyPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
+          # Устанавливаем TigerVNC (сервер) и websockify (мост для браузера)
+          brew install tiger-vnc websockify
+          # Скачиваем сам noVNC
+          git clone https://github.com/novnc/noVNC.git noVNC
 
-      - name: Get ID
+      - name: Start VNC Server
         run: |
-          # Пытаемся получить ID несколько раз
-          for i in {1..10}; do
-            AD_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
-            if [ ! -z "$AD_ID" ]; then
-              echo "--------------------------------"
-              echo "ID: $AD_ID"
-              echo "PASSWORD: MyPassword123"
-              echo "--------------------------------"
-              break
-            fi
-            sleep 2
-          done
+          # Создаем пароль для VNC (минимум 6 символов)
+          mkdir -p ~/.vnc
+          echo "password123" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+          
+          # Запускаем VNC сервер на порту 5901
+          # На macOS мы используем запуск через основной дисплей
+          vncserver :1 -geometry 1280x720 -depth 24
+          
+      - name: Start noVNC Bridge
+        run: |
+          # Запускаем websockify, который превращает VNC в поток для браузера
+          # Порт 6080 будет входным для браузера
+          ./noVNC/utils/novnc_proxy --vnc localhost:5901 --listen 6080 &
+          sleep 5
+
+      - name: Tunnel with Ngrok
+        run: |
+          # Чтобы зайти из интернета, нужен туннель. 
+          # Тебе нужно добавить NGROK_AUTH_TOKEN в Settings -> Secrets
+          brew install --cask ngrok
+          ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          ngrok http 6080 --log=stdout &
+          sleep 10
+          
+          # Выводим ссылку для подключения
+          curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url'
+          echo "Пароль: password123"
 
       - name: Keep Alive
         run: sleep 21600
