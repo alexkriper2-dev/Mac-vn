@@ -1,34 +1,54 @@
-name: macOS Remote Screen (VNC)
+name: Remote macOS Final
 on: workflow_dispatch
 
 jobs:
-  vnc-access:
+  connect:
     runs-on: macos-latest
     steps:
-      - name: Setup Ngrok
+      - name: 1. Install Tools
         run: |
-          brew install --cask ngrok
-          # Замени ВАШ_ТОКЕН на токен из личного кабинета ngrok
-          ngrok config add-authtoken ${{ secrets.NGROK_TOKEN }}
+          brew install ngrok --cask
+          # Даем системе понять, что мы будем работать с отладкой
+          sudo DevToolsSecurity -enable
 
-      - name: Enable Remote Desktop (VNC)
+      - name: 2. Configure User and VNC
         run: |
-          # Включаем службу "Общий экран" (Screen Sharing)
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
-          
-          # Устанавливаем пароль для пользователя runner (пароль будет: 1234)
+          # Устанавливаем пароль для пользователя runner
           echo "1234" | sudo dscl . -passwd /Users/runner 1234
           
-      - name: Create Tunnel
-        run: |
-          # Пробрасываем стандартный порт VNC (5900) через ngrok
-          # Запускаем в фоновом режиме
-          ngrok tcp 5900 --log=stdout & 
-          sleep 10
-          
-          # Выводим адрес для подключения
-          curl --silent http://127.0.0.1:4040/api/tunnels | jq '.tunnels[0].public_url'
+          # Включаем общий доступ к экрану (VNC)
+          # Используем обход ошибки 10 (игнорируем через || true)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -allowAccessFor -allUsers || true
 
-      - name: Keep Alive
+      - name: 3. Start Tunnel
+        env:
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_TOKEN }}
+        run: |
+          # Авторизация ngrok
+          ngrok config add-authtoken $NGROK_AUTH_TOKEN
+          
+          # Запуск туннеля на стандартный порт VNC 5900
+          # Логи пишем в файл, чтобы не занимать консоль
+          ngrok tcp 5900 --log=stdout > ngrok.log &
+          sleep 10
+
+      - name: 4. Reveal Connection Details
+        run: |
+          # Извлекаем публичный адрес из API ngrok
+          ADDRESS=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          
+          echo "=========================================="
+          echo "АДРЕС ДЛЯ ПОДКЛЮЧЕНИЯ: $ADDRESS"
+          echo "ПОЛЬЗОВАТЕЛЬ: runner"
+          echo "ПАРОЛЬ: 1234"
+          echo "=========================================="
+          
+          if [ "$ADDRESS" == "null" ]; then
+            echo "Ошибка: Ngrok не выдал адрес. Проверь токен!"
+            cat ngrok.log
+            exit 1
+          fi
+
+      - name: 5. Keep Alive
         run: sleep 21600
         
