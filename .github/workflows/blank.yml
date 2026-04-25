@@ -1,47 +1,41 @@
-name: macOS AnyDesk Remote
+name: macOS AnyDesk Fixed
 on: workflow_dispatch
 
 jobs:
   remote-access:
     runs-on: macos-latest
     steps:
-      - name: Download and Install AnyDesk
+      - name: Install AnyDesk
         run: |
-          # 1. Скачиваем DMG
+          # Скачиваем и устанавливаем
           curl -L -o AnyDesk.dmg https://download.anydesk.com/anydesk.dmg
-          
-          # 2. Монтируем образ
           sudo hdiutil mount AnyDesk.dmg
-          
-          # 3. Копируем приложение (используем дикую маскировку, так как имя может меняться)
+          # Используем cp -FP для сохранения ссылок и атрибутов
           sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications/
-          
-          # 4. Размонтируем
           hdiutil unmount /Volumes/AnyDesk
-          
-      - name: Configure AnyDesk and Password
+
+      - name: Launch and Configure
         run: |
-          # Устанавливаем пароль для доступа (замените 'TargetPassword123')
-          # Используем прямой путь к бинарному файлу внутри пакета
-          sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password "TargetPassword123"
+          # Даем системе права на выполнение бинарника
+          sudo chmod +x /Applications/AnyDesk.app/Contents/MacOS/AnyDesk
           
-          # Запускаем AnyDesk в фоновом режиме
+          # Запускаем приложение в фоне, чтобы создались конфиги
           open /Applications/AnyDesk.app
+          sleep 15
           
-      - name: Get AnyDesk ID
+          # Устанавливаем пароль (теперь через стандартный ввод, если доступно)
+          # Если 64 ошибка повторится здесь — попробуем без кавычек
+          echo "TargetPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
+          
+      - name: Connection Info
         run: |
-          echo "Ожидаем генерацию ID..."
-          sleep 10
-          # Получаем ID устройства
+          # Получаем ID
           ANYDESK_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
           echo "----------------------------------------"
-          echo "ANYDESK ID: $ANYDESK_ID"
-          echo "PASSWORD: TargetPassword123"
+          echo "ID: $ANYDESK_ID"
+          echo "PASS: TargetPassword123"
           echo "----------------------------------------"
 
-      - name: Keep Alive (6 hours)
-        run: |
-          # Не даем воркфлоу завершиться
-          sleep 21600
-          
-          
+      - name: Wait
+        run: sleep 21600
+        
