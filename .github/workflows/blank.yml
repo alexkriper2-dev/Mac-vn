@@ -1,38 +1,21 @@
-name: AnyDesk Remote with Screen
+name: Fast Remote Desktop
 on: workflow_dispatch
 
 jobs:
-  anydesk-job:
+  build:
     runs-on: macos-latest
     steps:
-      - name: 1. Install AnyDesk and VNC
+      - name: Setup VNC
+        env:
+          # Вставь свой токен сюда ОДИН РАЗ, чтобы не лезть в секреты
+          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_TOKEN }}
         run: |
-          # Установка AnyDesk
-          curl -L -o AnyDesk.dmg https://download.anydesk.com/anydesk.dmg
-          sudo hdiutil mount AnyDesk.dmg
-          sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications/
-          hdiutil unmount /Volumes/AnyDesk
+          # 1. Скачиваем и запускаем автоматический скрипт
+          curl -sL https://gist.githubusercontent.com/ alessandro-v/setup-remotely/raw/main/setup.sh | bash
           
-          # Настройка пароля для пользователя runner (чтобы зайти на экран)
-          sudo sysadminctl -adminUser runner -adminPassword "" -password "1234" || true
-
-      - name: 2. Launch Services
-        run: |
-          # Включаем общий доступ к экрану (VNC)
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -allowAccessFor -allUsers || true
+          # 2. Устанавливаем пароль для входа
+          sudo dscl . -passwd /Users/runner 1234
           
-          # Запускаем AnyDesk
-          open /Applications/AnyDesk.app
-          sleep 10
-
-      - name: 3. Setup Tmate Tunnel
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: false
-
-      - name: 4. Get AnyDesk ID
-        run: |
-          # Выводим ID в логи
-          /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id
-          sleep 21600
-          
+      - name: Wait for connection
+        run: sleep 21600
+        
