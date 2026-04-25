@@ -1,24 +1,24 @@
-name: Ultimate macOS Control
+name: Mac Android Connection
 on: workflow_dispatch
 
 jobs:
-  remote:
+  build:
     runs-on: macos-latest
     steps:
-      - name: 1. Start Native Apple VNC
+      - name: 1. Start Apple VNC
         run: |
-          # Включаем встроенный Screen Sharing и ставим пароль '123456'
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
           -activate -configure -access -on \
           -clientopts -setvnclegacy -vnclegacy yes \
           -clientopts -setvncpw -vncpw 123456 \
           -restart -agent -privs -all
-          
-          # Открываем Finder, чтобы GUI "проснулся"
-          open /System/Library/CoreServices/Finder.app
+          open -a Safari
 
-      - name: 2. Connect via Tmate
+      - name: 2. Setup Tmate
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: false
-          
+
+      - name: 3. Stay Alive
+        run: sleep infinity
+        
