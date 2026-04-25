@@ -1,21 +1,33 @@
-name: Fast Remote Desktop
+name: Fast macOS VNC
 on: workflow_dispatch
 
 jobs:
-  build:
+  remote:
     runs-on: macos-latest
     steps:
-      - name: Setup VNC
-        env:
-          # Вставь свой токен сюда ОДИН РАЗ, чтобы не лезть в секреты
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_TOKEN }}
+      - name: Install Ngrok
+        run: brew install ngrok --cask
+
+      - name: Start VNC and Password
         run: |
-          # 1. Скачиваем и запускаем автоматический скрипт
-          curl -sL https://gist.githubusercontent.com/ alessandro-v/setup-remotely/raw/main/setup.sh | bash
+          # Устанавливаем пароль '1234'
+          sudo dscl . -passwd /Users/runner 1234 || echo "1234" | sudo passwd runner
           
-          # 2. Устанавливаем пароль для входа
-          sudo dscl . -passwd /Users/runner 1234
+          # Включаем удаленный доступ (VNC)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -allowAccessFor -allUsers || true
+
+      - name: Launch Tunnel
+        run: |
+          # Авторизация и запуск одним махом
+          ngrok config add-authtoken ${{ secrets.NGROK_TOKEN }}
+          ngrok tcp 5900 --log=stdout > ngrok.log &
+          sleep 10
+
+      - name: Get Address
+        run: |
+          # Выводим адрес для входа
+          curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url'
           
-      - name: Wait for connection
+      - name: Keep Session
         run: sleep 21600
         
