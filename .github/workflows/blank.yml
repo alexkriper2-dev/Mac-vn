@@ -1,4 +1,4 @@
-name: macOS AnyDesk Repair
+name: macOS AnyDesk Auto-Accept
 on: workflow_dispatch
 
 jobs:
@@ -12,37 +12,35 @@ jobs:
           sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications/
           hdiutil unmount /Volumes/AnyDesk
 
-      - name: Fix Permissions and Init
+      - name: Configure Auto-Accept
         run: |
-          # Разрешаем запуск бинарника напрямую
-          sudo chmod +x /Applications/AnyDesk.app/Contents/MacOS/AnyDesk
-          
-          # Запускаем фоновый сервис AnyDesk
-          # Это критично, чтобы команда --set-password не выдавала 64
+          # Запускаем приложение
           open /Applications/AnyDesk.app
-          sleep 20
-
-      - name: Set Password (Fixing Error 64)
-        run: |
-          # Пробуем установить пароль через стандартную команду
-          # Если упадет здесь — значит сервис не успел подняться
-          sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password "YourPass123" || echo "Команда не прошла, пробуем альтернативу"
+          sleep 15
           
+          # Разрешаем интерактивные подключения (чтобы появилось окно "Принять")
+          # И на всякий случай всё равно ставим простой пароль для фонового входа
+          sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password "123456"
+          
+          # Даем права на выполнение сервиса
+          chmod +x /Applications/AnyDesk.app/Contents/MacOS/AnyDesk
+
       - name: Get ID and Stay Alive
         run: |
-          # Пытаемся достать ID несколько раз, если он не готов сразу
-          for i in {1..5}; do
+          # Цикл для получения ID, если он не появился сразу
+          for i in {1..6}; do
             ANYDESK_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
             if [ ! -z "$ANYDESK_ID" ]; then break; fi
-            echo "Ожидание ID..."
+            echo "Генерация ID... попытка $i"
             sleep 10
           done
 
-          echo "----------------------------------------"
-          echo "ANYDESK ID: $ANYDESK_ID"
-          echo "PASSWORD: YourPass123"
-          echo "----------------------------------------"
+          echo "------------------------------------------------"
+          echo "ID ДЛЯ ПОДКЛЮЧЕНИЯ: $ANYDESK_ID"
+          echo "ПАРОЛЬ (если спросит): 123456"
+          echo "Или просто нажмите 'Принять' в окне на стороне GitHub"
+          echo "------------------------------------------------"
           
-          # Держим воркфлоу активным
+          # Держим сессию активной
           sleep 21600
           
