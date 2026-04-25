@@ -1,37 +1,46 @@
-name: macOS TeamViewer Remote
+name: macOS VNC via ngrok
 on: workflow_dispatch
 
 jobs:
-  connect:
+  remote-access:
     runs-on: macos-latest
     steps:
-      - name: Install TeamViewer
+      - name: Install VNC and ngrok
         run: |
-          brew install --cask teamviewer
-          
-      - name: Setup and Start TeamViewer
-        run: |
-          # 1. Запускаем фоновую службу (демон)
-          sudo /Applications/TeamViewer.app/Contents/MacOS/TeamViewer --daemon start
-          
-          # 2. Устанавливаем пароль для неконтролируемого доступа
-          # Замени 'YourPass123' на свой сложный пароль
-          sudo /Applications/TeamViewer.app/Contents/MacOS/TeamViewer --passwd YourPass123
-          
-          # 3. Даем время на генерацию ID
-          sleep 15
+          brew install tiger-vnc
+          brew install --cask ngrok
 
-      - name: Get TeamViewer ID
+      - name: Configure VNC
         run: |
-          # Команда для получения ID в консоль
-          echo "--------------------------------"
-          echo "TEAMVIEWER ID:"
-          /Applications/TeamViewer.app/Contents/MacOS/TeamViewer --info | grep "TeamViewer ID"
-          echo "PASSWORD: YourPass123"
-          echo "--------------------------------"
+          mkdir -p ~/.vnc
+          # Устанавливаем пароль (минимум 6 символов)
+          echo "password123" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+
+      - name: Start VNC Server
+        run: |
+          # Запускаем на порту 5901 (экран :1)
+          vncserver :1 -geometry 1280x720 -depth 24
+
+      - name: Start ngrok Tunnel
+        run: |
+          # Вставь свой токен в секреты репозитория как NGROK_AUTH_TOKEN
+          ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+          
+          # Пробрасываем TCP порт 5901 (VNC)
+          ngrok tcp 5901 --log=stdout &
+          sleep 10
+
+      - name: Get Connection Address
+        run: |
+          # Вытаскиваем адрес туннеля из API ngrok
+          export ADDRESS=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "--------------------------------------------------"
+          echo "АДРЕС ДЛЯ ПОДКЛЮЧЕНИЯ:"
+          echo "$ADDRESS"
+          echo "ПАРОЛЬ: password123"
+          echo "--------------------------------------------------"
 
       - name: Keep Alive
-        run: |
-          # Воркфлоу будет работать до 6 часов
-          sleep 21600
-          
+        run: sleep 21600
+        
