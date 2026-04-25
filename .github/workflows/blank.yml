@@ -1,31 +1,32 @@
-name: macOS Direct Link (Tailscale)
-on: workflow_dispatch
+name: macOS Remote Desktop
+on: workflow_dispatch # Запуск вручную
 
 jobs:
-  connect:
+  build:
     runs-on: macos-latest
     steps:
-      - name: 1. Install Tailscale
-        run: curl -fsSL https://tailscale.com/install.sh | sh
-
-      - name: 2. Connect Tailscale
-        env:
-          # Твой ключ из панели Tailscale
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: sudo tailscale up --authkey=$TS_KEY
-
-      - name: 3. Enable VNC & Password
+      - name: Install AnyDesk
         run: |
-          sudo dscl . -passwd /Users/runner 1234 || echo "1234" | sudo passwd runner
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -allowAccessFor -allUsers || true
+          brew install --cask anydesk
 
-      - name: 4. Reveal IP Address
+      - name: Set AnyDesk Password
         run: |
-          echo "=========================================="
-          echo "ТВОЙ ПЕРСОНАЛЬНЫЙ IP ДЛЯ VNC:"
-          tailscale ip -4
-          echo "=========================================="
+          # Установка пароля для неконтролируемого доступа
+          # Замените 'YourStrongPassword123' на свой секретный пароль
+          echo "YourStrongPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
+          
+      - name: Get AnyDesk ID
+        run: |
+          # Ожидание инициализации и вывод ID в консоль
+          sleep 5
+          AD_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
+          echo "--------------------------------"
+          echo "AnyDesk ID: $AD_ID"
+          echo "--------------------------------"
 
-      - name: 5. Keep Alive
-        run: sleep 21600
-        
+      - name: Keep Alive
+        run: |
+          # Воркфлоу будет работать до 6 часов (лимит GitHub)
+          # Чтобы завершить сессию, просто остановите Run в GitHub Actions
+          sleep 21600 
+          
