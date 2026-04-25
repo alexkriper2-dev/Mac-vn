@@ -1,36 +1,31 @@
-name: macOS for Android (No Card)
+name: macOS Direct Link (Tailscale)
 on: workflow_dispatch
 
 jobs:
   connect:
     runs-on: macos-latest
     steps:
-      - name: Install Localtunnel
-        run: npm install -g localtunnel
+      - name: 1. Install Tailscale
+        run: curl -fsSL https://tailscale.com/install.sh | sh
 
-      - name: Set Password & Enable VNC
+      - name: 2. Connect Tailscale
+        env:
+          # Твой ключ из панели Tailscale
+          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: sudo tailscale up --authkey=$TS_KEY
+
+      - name: 3. Enable VNC & Password
         run: |
-          # Пароль 1234
           sudo dscl . -passwd /Users/runner 1234 || echo "1234" | sudo passwd runner
-          # Включаем экран
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -allowAccessFor -allUsers || true
 
-      - name: Start Tunnel
+      - name: 4. Reveal IP Address
         run: |
-          # Пробрасываем порт 5900
-          lt --port 5900 > lt.log 2>&1 &
-          sleep 5
+          echo "=========================================="
+          echo "ТВОЙ ПЕРСОНАЛЬНЫЙ IP ДЛЯ VNC:"
+          tailscale ip -4
+          echo "=========================================="
 
-      - name: 🔍 ТВОЙ АДРЕС ТУТ
-        run: |
-          echo "############################################################"
-          echo "##                                                        ##"
-          echo "##  СКОПИРУЙ ЭТУ ССЫЛКУ И ВСТАВЬ В VNC VIEWER НА ТЕЛЕФОНЕ: ##"
-          echo "##                                                        ##"
-          echo "    $(grep -o 'https://.*' lt.log)                        "
-          echo "##                                                        ##"
-          echo "##  PASS: 1234                                            ##"
-          echo "##  USER: runner                                          ##"
-          echo "##                                                        ##"
-          echo "############################################################"
-          
+      - name: 5. Keep Alive
+        run: sleep 21600
+        
