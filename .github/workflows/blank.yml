@@ -1,4 +1,4 @@
-name: macOS AnyDesk Fixed
+name: macOS AnyDesk Repair
 on: workflow_dispatch
 
 jobs:
@@ -7,35 +7,42 @@ jobs:
     steps:
       - name: Install AnyDesk
         run: |
-          # Скачиваем и устанавливаем
           curl -L -o AnyDesk.dmg https://download.anydesk.com/anydesk.dmg
           sudo hdiutil mount AnyDesk.dmg
-          # Используем cp -FP для сохранения ссылок и атрибутов
           sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications/
           hdiutil unmount /Volumes/AnyDesk
 
-      - name: Launch and Configure
+      - name: Fix Permissions and Init
         run: |
-          # Даем системе права на выполнение бинарника
+          # Разрешаем запуск бинарника напрямую
           sudo chmod +x /Applications/AnyDesk.app/Contents/MacOS/AnyDesk
           
-          # Запускаем приложение в фоне, чтобы создались конфиги
+          # Запускаем фоновый сервис AnyDesk
+          # Это критично, чтобы команда --set-password не выдавала 64
           open /Applications/AnyDesk.app
-          sleep 15
-          
-          # Устанавливаем пароль (теперь через стандартный ввод, если доступно)
-          # Если 64 ошибка повторится здесь — попробуем без кавычек
-          echo "TargetPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
-          
-      - name: Connection Info
-        run: |
-          # Получаем ID
-          ANYDESK_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
-          echo "----------------------------------------"
-          echo "ID: $ANYDESK_ID"
-          echo "PASS: TargetPassword123"
-          echo "----------------------------------------"
+          sleep 20
 
-      - name: Wait
-        run: sleep 21600
-        
+      - name: Set Password (Fixing Error 64)
+        run: |
+          # Пробуем установить пароль через стандартную команду
+          # Если упадет здесь — значит сервис не успел подняться
+          sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password "YourPass123" || echo "Команда не прошла, пробуем альтернативу"
+          
+      - name: Get ID and Stay Alive
+        run: |
+          # Пытаемся достать ID несколько раз, если он не готов сразу
+          for i in {1..5}; do
+            ANYDESK_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
+            if [ ! -z "$ANYDESK_ID" ]; then break; fi
+            echo "Ожидание ID..."
+            sleep 10
+          done
+
+          echo "----------------------------------------"
+          echo "ANYDESK ID: $ANYDESK_ID"
+          echo "PASSWORD: YourPass123"
+          echo "----------------------------------------"
+          
+          # Держим воркфлоу активным
+          sleep 21600
+          
