@@ -5,19 +5,19 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: 1. Setup Native VNC
+      - name: 1. Setup Password and Native VNC
         run: |
-          # Устанавливаем пароль для текущего пользователя (runner)
-          # В GitHub Actions пароль пользователя 'runner' по умолчанию пустой или неизвестен
-          sudo dscl . -passwd /Users/runner 123456
+          # Устанавливаем пароль '123456' для пользователя 'runner'
+          sudo sysadminctl -adminUser runner -adminPassword "" -password 123456
           
-          # Активируем Screen Sharing (Native VNC)
+          # Включаем встроенный Screen Sharing (Native VNC)
           sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
           
-          # Разрешаем доступ для всех пользователей (или конкретно для runner)
+          # Настраиваем права доступа через kickstart
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on \
-            -privs -all -restart -agent
+            -clientopts -setvncpasswd -vncpasswd 123456 \
+            -privs -all -restart -agent -menu
 
       - name: 2. Start Tmate & Connect
         uses: mxschmitt/action-tmate@v3
