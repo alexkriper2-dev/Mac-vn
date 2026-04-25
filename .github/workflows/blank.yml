@@ -1,4 +1,4 @@
-name: macOS Remote VNC via ngrok
+name: macOS VNC NO PASSWORD
 on: workflow_dispatch
 
 jobs:
@@ -10,38 +10,32 @@ jobs:
           brew install tiger-vnc
           brew install --cask ngrok
 
-      - name: 2. Setup VNC (Fix PATH & Password)
+      - name: 2. Start VNC Server (No Security)
         run: |
-          # Принудительно добавляем пути, чтобы не было ошибки "command not found"
+          # Добавляем пути Homebrew
           export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
           
-          mkdir -p ~/.vnc
-          # Устанавливаем пароль (минимум 6 символов)
-          echo "password123" | vncpasswd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
-          
-          # Запускаем сервер на дисплее :1 (порт 5901)
-          vncserver :1 -geometry 1280x720 -depth 24
+          # Запускаем VNC с отключенной проверкой пароля (-SecurityTypes None)
+          # Это решает проблему с отсутствующей командой vncpasswd
+          vncserver :1 -geometry 1280x720 -depth 24 -SecurityTypes None
 
       - name: 3. Start ngrok Tunnel
         run: |
-          # Используем секрет NGROK_AUTH_TOKEN из настроек репозитория
+          # Используй свой секрет NGROK_AUTH_TOKEN
           ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
           
-          # Пробрасываем TCP порт 5901
+          # Пробрасываем порт 5901 (VNC)
           ngrok tcp 5901 --log=stdout &
           sleep 10
 
       - name: 4. Get Connection Details
         run: |
-          # Вытаскиваем публичный адрес
           URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
           echo "--------------------------------------------------"
-          echo "СКОПИРУЙ ЭТОТ АДРЕС:"
+          echo "АДРЕС ДЛЯ ПОДКЛЮЧЕНИЯ (ПАРОЛЬ НЕ НУЖЕН):"
           echo "$URL" | sed 's/tcp:\/\///'
-          echo "ПАРОЛЬ: password123"
           echo "--------------------------------------------------"
 
       - name: 5. Keep Alive
-        run: sleep 21600 # 6 часов работы
+        run: sleep 21600
         
