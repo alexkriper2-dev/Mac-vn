@@ -1,28 +1,23 @@
-name: macOS Remote Control
+name: Ultimate macOS Control
 on: workflow_dispatch
 
 jobs:
-  build:
+  remote:
     runs-on: macos-latest
     steps:
-      - name: 1. Install VNC Server
-        run: brew install tiger-vnc
-
-      - name: 2. Configure VNC (No Password)
+      - name: 1. Start Native Apple VNC
         run: |
-          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-          mkdir -p ~/.vnc
-          # Устанавливаем пароль 123456
-          echo "123456" | vncpasswd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
+          # Включаем встроенный Screen Sharing и ставим пароль '123456'
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -activate -configure -access -on \
+          -clientopts -setvnclegacy -vnclegacy yes \
+          -clientopts -setvncpw -vncpw 123456 \
+          -restart -agent -privs -all
           
-          # Запускаем сервер на дисплее :1
-          vncserver :1 -geometry 1280x720 -depth 24
-          
-          # Принудительно запускаем браузер, чтобы инициализировать GUI
-          open -a Safari
+          # Открываем Finder, чтобы GUI "проснулся"
+          open /System/Library/CoreServices/Finder.app
 
-      - name: 3. Start Tmate & Connect
+      - name: 2. Connect via Tmate
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: false
