@@ -1,51 +1,47 @@
-name: macOS Remote Desktop (AnyDesk)
-
-on: 
-  workflow_dispatch: # Запуск вручную
+name: macOS AnyDesk Remote
+on: workflow_dispatch
 
 jobs:
-  anydesk-connection:
+  remote-access:
     runs-on: macos-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install AnyDesk
+      - name: Download and Install AnyDesk
         run: |
-          # Скачиваем официальный DMG
-          curl -L -o anydesk.dmg https://download.anydesk.com/anydesk.dmg
+          # 1. Скачиваем DMG
+          curl -L -o AnyDesk.dmg https://download.anydesk.com/anydesk.dmg
           
-          # Монтируем образ
-          sudo hdiutil mount anydesk.dmg
+          # 2. Монтируем образ
+          sudo hdiutil mount AnyDesk.dmg
           
-          # Копируем приложение в папку Applications
-          sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications
+          # 3. Копируем приложение (используем дикую маскировку, так как имя может меняться)
+          sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications/
           
-          # Размонтируем образ
+          # 4. Размонтируем
           hdiutil unmount /Volumes/AnyDesk
-
-      - name: Set AnyDesk Password
+          
+      - name: Configure AnyDesk and Password
         run: |
-          # Устанавливаем пароль для беспарольного доступа
-          # Замените 'YourStrongPassword123' на свой в секретах GitHub, если нужно
-          echo "YourStrongPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
-
+          # Устанавливаем пароль для доступа (замените 'TargetPassword123')
+          # Используем прямой путь к бинарному файлу внутри пакета
+          sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password "TargetPassword123"
+          
+          # Запускаем AnyDesk в фоновом режиме
+          open /Applications/AnyDesk.app
+          
       - name: Get AnyDesk ID
-        id: get_id
         run: |
-          # Ждем запуска сервиса и получаем ID
-          sleep 5
+          echo "Ожидаем генерацию ID..."
+          sleep 10
+          # Получаем ID устройства
           ANYDESK_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
-          echo "ANYDESK_ID=$ANYDESK_ID" >> $GITHUB_ENV
-          echo "------------------------------------------"
-          echo "Ваш AnyDesk ID: $ANYDESK_ID"
-          echo "Пароль: YourStrongPassword123"
-          echo "------------------------------------------"
+          echo "----------------------------------------"
+          echo "ANYDESK ID: $ANYDESK_ID"
+          echo "PASSWORD: TargetPassword123"
+          echo "----------------------------------------"
 
-      - name: Keep Alive
+      - name: Keep Alive (6 hours)
         run: |
-          # Чтобы сессия не закрылась сразу, зацикливаем процесс на 6 часов
-          # (Максимальное время жизни job в GitHub Actions)
-          echo "Сессия активна. Подключайтесь через AnyDesk..."
+          # Не даем воркфлоу завершиться
           sleep 21600
+          
           
