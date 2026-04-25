@@ -1,27 +1,37 @@
-name: Ultimate macOS Remote
+name: macOS TeamViewer Remote
 on: workflow_dispatch
 
 jobs:
-  build:
+  connect:
     runs-on: macos-latest
     steps:
-      - name: Install VNC Server
-        run: brew install tiger-vnc
-
-      - name: Configure VNC Desktop
+      - name: Install TeamViewer
         run: |
-          # 1. Создаем папку для настроек
-          mkdir -p ~/.vnc
-          # 2. Устанавливаем пароль 'password123'
-          echo "password123" | passwd -f > ~/.vnc/passwd
-          chmod 600 ~/.vnc/passwd
+          brew install --cask teamviewer
           
-          # 3. Запускаем VNC на порту 5901 (экран :1)
-          # Используем стандартное разрешение для стабильности
-          vncserver :1 -geometry 1280x720 -depth 24
+      - name: Setup and Start TeamViewer
+        run: |
+          # 1. Запускаем фоновую службу (демон)
+          sudo /Applications/TeamViewer.app/Contents/MacOS/TeamViewer --daemon start
+          
+          # 2. Устанавливаем пароль для неконтролируемого доступа
+          # Замени 'YourPass123' на свой сложный пароль
+          sudo /Applications/TeamViewer.app/Contents/MacOS/TeamViewer --passwd YourPass123
+          
+          # 3. Даем время на генерацию ID
+          sleep 15
 
-      - name: Start Tmate & Connect
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: false
+      - name: Get TeamViewer ID
+        run: |
+          # Команда для получения ID в консоль
+          echo "--------------------------------"
+          echo "TEAMVIEWER ID:"
+          /Applications/TeamViewer.app/Contents/MacOS/TeamViewer --info | grep "TeamViewer ID"
+          echo "PASSWORD: YourPass123"
+          echo "--------------------------------"
+
+      - name: Keep Alive
+        run: |
+          # Воркфлоу будет работать до 6 часов
+          sleep 21600
           
