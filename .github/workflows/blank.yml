@@ -1,41 +1,43 @@
-name: macOS VNC NO PASSWORD
+name: Native macOS VNC + ngrok
 on: workflow_dispatch
 
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: 1. Install TigerVNC & ngrok
+      - name: 1. Enable Built-in macOS VNC Server
         run: |
-          brew install tiger-vnc
-          brew install --cask ngrok
-
-      - name: 2. Start VNC Server (No Security)
-        run: |
-          # Добавляем пути Homebrew
-          export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+          # Включаем встроенный Screen Sharing (VNC) от Apple
+          # Устанавливаем пароль '123456', так как Apple не пускает без него
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -activate -configure -access -on \
+          -clientopts -setvnclegacy -vnclegacy yes \
+          -clientopts -setvncpw -vncpw 123456 \
+          -restart -agent -privs -all
           
-          # Запускаем VNC с отключенной проверкой пароля (-SecurityTypes None)
-          # Это решает проблему с отсутствующей командой vncpasswd
-          vncserver :1 -geometry 1280x720 -depth 24 -SecurityTypes None
+          echo "Native VNC Server started on port 5900"
+          sleep 5
 
-      - name: 3. Start ngrok Tunnel
+      - name: 2. Install & Start ngrok
         run: |
+          brew install --cask ngrok
+          
           # Используй свой секрет NGROK_AUTH_TOKEN
           ngrok authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
           
-          # Пробрасываем порт 5901 (VNC)
-          ngrok tcp 5901 --log=stdout &
+          # Встроенный VNC Mac работает на порту 5900 (а не 5901)
+          ngrok tcp 5900 --log=stdout &
           sleep 10
 
-      - name: 4. Get Connection Details
+      - name: 3. Get Connection Details
         run: |
           URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
           echo "--------------------------------------------------"
-          echo "АДРЕС ДЛЯ ПОДКЛЮЧЕНИЯ (ПАРОЛЬ НЕ НУЖЕН):"
+          echo "АДРЕС ДЛЯ ПОДКЛЮЧЕНИЯ:"
           echo "$URL" | sed 's/tcp:\/\///'
+          echo "ПАРОЛЬ: 123456"
           echo "--------------------------------------------------"
 
-      - name: 5. Keep Alive
+      - name: 4. Keep Alive
         run: sleep 21600
         
