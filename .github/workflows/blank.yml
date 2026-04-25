@@ -1,21 +1,25 @@
-name: Mac Stable Connect
+name: macOS Remote Control (Native VNC)
 on: workflow_dispatch
+
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Start VNC Native
+      - name: 1. Setup Native VNC
         run: |
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-          -activate -configure -access -on \
-          -clientopts -setvnclegacy yes -setvncpw -vncpw 123456 \
-          -restart -agent -privs -all
+          # Устанавливаем пароль для текущего пользователя (runner)
+          # В GitHub Actions пароль пользователя 'runner' по умолчанию пустой или неизвестен
+          sudo dscl . -passwd /Users/runner 123456
           
-          # Запускаем Safari, чтобы система инициализировала рабочий стол
-          open -a Safari
+          # Активируем Screen Sharing (Native VNC)
+          sudo launchctl load -w /System/Library/LaunchDaemons/com.apple.screensharing.plist
+          
+          # Разрешаем доступ для всех пользователей (или конкретно для runner)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -activate -configure -access -on \
+            -privs -all -restart -agent
 
-      - name: Tmate Tunnel
+      - name: 2. Start Tmate & Connect
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: false
-          
