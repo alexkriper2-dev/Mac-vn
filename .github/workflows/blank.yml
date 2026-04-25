@@ -1,49 +1,34 @@
-name: macOS AnyDesk Connect
+name: macOS Remote Screen (VNC)
 on: workflow_dispatch
 
 jobs:
-  remote-access:
+  vnc-access:
     runs-on: macos-latest
     steps:
-      - name: Install AnyDesk
+      - name: Setup Ngrok
         run: |
-          curl -L -o AnyDesk.dmg https://download.anydesk.com/anydesk.dmg
-          sudo hdiutil mount AnyDesk.dmg
-          sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications/
-          hdiutil unmount /Volumes/AnyDesk
+          brew install --cask ngrok
+          # Замени ВАШ_ТОКЕН на токен из личного кабинета ngrok
+          ngrok config add-authtoken ${{ secrets.NGROK_TOKEN }}
 
-      - name: Force Init Configs
+      - name: Enable Remote Desktop (VNC)
         run: |
-          # Создаем папки настроек вручную, чтобы избежать ошибки 64
-          sudo mkdir -p /etc/anydesk
-          sudo mkdir -p ~/.anydesk
+          # Включаем службу "Общий экран" (Screen Sharing)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -restart -agent -privs -all
           
-          # Даем полные права приложению
-          sudo chmod +x /Applications/AnyDesk.app/Contents/MacOS/AnyDesk
+          # Устанавливаем пароль для пользователя runner (пароль будет: 1234)
+          echo "1234" | sudo dscl . -passwd /Users/runner 1234
           
-          # Запускаем и даем 20 секунд на "прогрев"
-          open /Applications/AnyDesk.app
-          sleep 20
-
-      - name: Setup Password and ID
+      - name: Create Tunnel
         run: |
-          # Устанавливаем пароль (используем "123456" для простоты)
-          # Если 64 ошибка все еще лезет, мы ее игнорируем через '|| true'
-          echo "123456" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password || true
+          # Пробрасываем стандартный порт VNC (5900) через ngrok
+          # Запускаем в фоновом режиме
+          ngrok tcp 5900 --log=stdout & 
+          sleep 10
           
-          # Пытаемся получить ID
-          for i in {1..10}; do
-            ANYDESK_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
-            if [ ! -z "$ANYDESK_ID" ]; then break; fi
-            echo "Ждем ID..."
-            sleep 5
-          done
-          
-          echo "------------------------------------------------"
-          echo "ПОДКЛЮЧАЙСЯ ПО ID: $ANYDESK_ID"
-          echo "ПАРОЛЬ: 123456"
-          echo "------------------------------------------------"
+          # Выводим адрес для подключения
+          curl --silent http://127.0.0.1:4040/api/tunnels | jq '.tunnels[0].public_url'
 
-      - name: Keep Session Open
+      - name: Keep Alive
         run: sleep 21600
         
