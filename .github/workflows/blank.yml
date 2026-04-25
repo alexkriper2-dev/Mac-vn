@@ -13,7 +13,7 @@ jobs:
           # 1. Создаем папку для настроек
           mkdir -p ~/.vnc
           # 2. Устанавливаем пароль 'password123'
-          echo "password123" | vncpasswd -f > ~/.vnc/passwd
+          echo "password123" | passwd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
           
           # 3. Запускаем VNC на порту 5901 (экран :1)
