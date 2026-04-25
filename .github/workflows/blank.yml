@@ -1,4 +1,4 @@
-name: Remote macOS (Final Fix)
+name: macOS VNC Debug
 on: workflow_dispatch
 
 jobs:
@@ -6,44 +6,53 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: 1. Install Tools
-        run: brew install ngrok --cask
-
-      - name: 2. Force Set Password and VNC
         run: |
-          # Используем sysadminctl — он лучше работает в автоматизации
-          # Устанавливаем пароль '1234' для текущего пользователя runner
+          brew install ngrok --cask
+          sudo DevToolsSecurity -enable
+
+      - name: 2. Set Password & Enable VNC
+        run: |
+          # Пытаемся установить пароль '1234' разными способами
           sudo sysadminctl -adminUser runner -adminPassword "" -password "1234" || true
+          echo "1234" | sudo passwd runner || true
           
-          # Если верхняя команда не сработала, пробуем через apple script (эмуляция ввода)
-          sudo passwd runner <<EOF
-          1234
-          1234
-          EOF
-          
-          # Включаем удаленный доступ
+          # Включаем VNC
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -access -on -privs -all -allowAccessFor -allUsers || true
 
-      - name: 3. Start Tunnel
+      - name: 3. Start Ngrok with Debug
         env:
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_TOKEN }}
+          TKN: ${{ secrets.NGROK_TOKEN }}
         run: |
-          ngrok config add-authtoken $NGROK_AUTH_TOKEN
-          ngrok tcp 5900 --log=stdout > ngrok.log &
-          sleep 10
-
-      - name: 4. Reveal Connection Details
-        run: |
-          ADDRESS=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          echo "=========================================="
-          echo "АДРЕС: $ADDRESS"
-          echo "USER: runner"
-          echo "PASS: 1234"
-          echo "=========================================="
+          # Если токен пустой, скрипт об этом скажет
+          if [ -z "$TKN" ]; then echo "ОШИБКА: Секрет NGROK_TOKEN не найден в настройках!"; exit 1; fi
           
-          if [ "$ADDRESS" == "null" ]; then
-            echo "Ngrok error! Check your token."
+          # Авторизация
+          ngrok config add-authtoken "$TKN"
+          
+          # Запуск туннеля (логируем всё в файл ngrok.log)
+          ngrok tcp 5900 --log=stdout > ngrok.log &
+          
+          # Даем время на запуск
+          sleep 15
+
+      - name: 4. Reveal Address or Show Error
+        run: |
+          # Пытаемся достать адрес через локальный API ngrok
+          ADDRESS=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          
+          if [ "$ADDRESS" == "null" ] || [ -z "$ADDRESS" ]; then
+            echo "------------------------------------------"
+            echo "КРИТИЧЕСКАЯ ОШИБКА: NGROK НЕ ЗАПУСТИЛСЯ"
+            echo "Вот лог ошибки:"
             cat ngrok.log
+            echo "------------------------------------------"
             exit 1
+          else
+            echo "=========================================="
+            echo "ПОДКЛЮЧАЙСЯ: $ADDRESS"
+            echo "USER: runner"
+            echo "PASS: 1234"
+            echo "=========================================="
           fi
 
       - name: 5. Keep Alive
