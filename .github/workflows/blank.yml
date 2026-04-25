@@ -1,32 +1,38 @@
-name: macOS Remote Desktop
-on: workflow_dispatch # Запуск вручную
+name: AnyDesk macOS Connection
+on: workflow_dispatch
 
 jobs:
-  build:
+  connect:
     runs-on: macos-latest
     steps:
       - name: Install AnyDesk
-        run: |
-          brew install --cask anydesk
+        run: brew install --cask anydesk
 
-      - name: Set AnyDesk Password
+      - name: Configure and Start AnyDesk
         run: |
-          # Установка пароля для неконтролируемого доступа
-          # Замените 'YourStrongPassword123' на свой секретный пароль
-          echo "YourStrongPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
+          # 1. Запускаем фоновую службу
+          sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --service &
+          sleep 10
           
-      - name: Get AnyDesk ID
+          # 2. Устанавливаем пароль (замени MyPassword123 на свой или используй Secret)
+          # Важно: используем sudo, так как конфиг AnyDesk защищен
+          echo "1234" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
+          
+          # 3. Даем права на запуск (иногда требуется на macOS раннерах)
+          sudo chmod +x /Applications/AnyDesk.app/Contents/MacOS/AnyDesk
+          
+      - name: Display Connection ID
         run: |
-          # Ожидание инициализации и вывод ID в консоль
-          sleep 5
-          AD_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
+          # Получаем ID для подключения
           echo "--------------------------------"
-          echo "AnyDesk ID: $AD_ID"
+          echo "ID ДЛЯ ПОДКЛЮЧЕНИЯ:"
+          /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id
+          echo "ПАРОЛЬ: 1234"
           echo "--------------------------------"
 
       - name: Keep Alive
         run: |
-          # Воркфлоу будет работать до 6 часов (лимит GitHub)
-          # Чтобы завершить сессию, просто остановите Run в GitHub Actions
-          sleep 21600 
+          # Чтобы воркфлоу не закрылся сразу, держим его активным
+          # 21600 секунд = 6 часов
+          sleep 21600
           
