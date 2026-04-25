@@ -1,0 +1,51 @@
+name: macOS Remote Desktop (AnyDesk)
+
+on: 
+  workflow_dispatch: # Запуск вручную
+
+jobs:
+  anydesk-connection:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install AnyDesk
+        run: |
+          # Скачиваем официальный DMG
+          curl -L -o anydesk.dmg https://download.anydesk.com/anydesk.dmg
+          
+          # Монтируем образ
+          sudo hdiutil mount anydesk.dmg
+          
+          # Копируем приложение в папку Applications
+          sudo cp -R /Volumes/AnyDesk/AnyDesk.app /Applications
+          
+          # Размонтируем образ
+          hdiutil unmount /Volumes/AnyDesk
+
+      - name: Set AnyDesk Password
+        run: |
+          # Устанавливаем пароль для беспарольного доступа
+          # Замените 'YourStrongPassword123' на свой в секретах GitHub, если нужно
+          echo "YourStrongPassword123" | sudo /Applications/AnyDesk.app/Contents/MacOS/AnyDesk --set-password
+
+      - name: Get AnyDesk ID
+        id: get_id
+        run: |
+          # Ждем запуска сервиса и получаем ID
+          sleep 5
+          ANYDESK_ID=$(/Applications/AnyDesk.app/Contents/MacOS/AnyDesk --get-id)
+          echo "ANYDESK_ID=$ANYDESK_ID" >> $GITHUB_ENV
+          echo "------------------------------------------"
+          echo "Ваш AnyDesk ID: $ANYDESK_ID"
+          echo "Пароль: YourStrongPassword123"
+          echo "------------------------------------------"
+
+      - name: Keep Alive
+        run: |
+          # Чтобы сессия не закрылась сразу, зацикливаем процесс на 6 часов
+          # (Максимальное время жизни job в GitHub Actions)
+          echo "Сессия активна. Подключайтесь через AnyDesk..."
+          sleep 21600
+          
