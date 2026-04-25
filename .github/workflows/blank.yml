@@ -1,24 +1,21 @@
-name: Mac Android Connection
+name: Mac Stable Connect
 on: workflow_dispatch
-
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: 1. Start Apple VNC
+      - name: Start VNC Native
         run: |
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
           -activate -configure -access -on \
-          -clientopts -setvnclegacy -vnclegacy yes \
-          -clientopts -setvncpw -vncpw 123456 \
+          -clientopts -setvnclegacy yes -setvncpw -vncpw 123456 \
           -restart -agent -privs -all
+          
+          # Запускаем Safari, чтобы система инициализировала рабочий стол
           open -a Safari
 
-      - name: 2. Setup Tmate
+      - name: Tmate Tunnel
         uses: mxschmitt/action-tmate@v3
         with:
           limit-access-to-actor: false
-
-      - name: 3. Stay Alive
-        run: sleep infinity
-        
+          
